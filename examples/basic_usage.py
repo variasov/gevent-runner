@@ -1,5 +1,9 @@
 import time
 import gevent
+from gevent import monkey
+
+monkey.patch_all()
+
 from classic.gevent_runner.runner import GreenletRunner
 
 
@@ -19,20 +23,33 @@ def print_timestamp():
 
 
 def print_heartbeat():
+    """Daemon task - will be stopped when all non-daemon tasks complete."""
     while True:
-        print(f"[Heartbeat Task] System is alive!")
+        print(f"[Heartbeat Task - DAEMON] System is alive!")
         gevent.sleep(5)
 
 
+def print_status():
+    """Background monitoring daemon task."""
+    while True:
+        print(f"[Status Monitor - DAEMON] Monitoring system...")
+        gevent.sleep(7)
+
+
 def main():
-    print("Starting GreenletRunner with 3 concurrent tasks...")
+    print("Starting GreenletRunner with 2 regular tasks and 2 daemon tasks...")
     print("Press Ctrl+C to stop all tasks\n")
     
     # Create a runner instance
     runner = GreenletRunner()
     
-    # Add tasks to the runner
-    runner.add(print_numbers, print_timestamp, print_heartbeat)
+    # Add regular (non-daemon) tasks
+    # These tasks need to complete for the runner to finish
+    runner.add(print_numbers, print_timestamp)
+    
+    # Add daemon tasks - these will run in background
+    # They will be automatically stopped when all non-daemon tasks finish
+    runner.add(print_heartbeat, print_status, is_daemon=True)
     
     # Start the main loop (blocks until SIGTERM or SIGINT)
     # This will run indefinitely until interrupted

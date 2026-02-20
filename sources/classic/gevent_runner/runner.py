@@ -4,16 +4,23 @@ from types import FrameType
 from typing import Callable
 
 import gevent
+from gevent import monkey
 
 
 class GreenletRunner:
 
     def __init__(self):
-        self._tasks: dict[Callable, gevent.Greenlet] = {}
+        if not monkey.is_anything_patched():
+            raise RuntimeError(
+                'Требуется monkey patching gevent. '
+                'Вызовите gevent.monkey.patch_all() перед созданием экземпляра '
+                'GreenletRunner.'
+            )
+        self._tasks: dict[Callable, tuple[gevent.Greenlet, bool]] = {}
         self._lock = threading.RLock()
         self._is_stoped = threading.Event()
 
-    def add(self, *callables) -> None:
+    def add(self, *callables, is_daemon: bool = False) -> None:
         """Запускает задачи."""
         if self._is_stoped.is_set():
             raise RuntimeError('GreenletRunner stopped')
@@ -22,7 +29,7 @@ class GreenletRunner:
             for func in callables:
                 if func in self._tasks:
                     raise ValueError(f'Task {func} already added')
-                self._tasks[func] = gevent.spawn(func)
+                self._tasks[func] = gevent.spawn(func), is_daemon
 
     def remove(self, *callables, timeout: float | None = None) -> None:
         """Останавливает и удаляет задачи.
@@ -31,7 +38,7 @@ class GreenletRunner:
         """
         with self._lock:
             for func in callables:
-                greenlet = self._tasks.get(func)
+                greenlet, _ = self._tasks.get(func)
                 if greenlet is None:
                     continue
 
@@ -43,7 +50,7 @@ class GreenletRunner:
     def _shutdown(self, signum: int, frame: FrameType | None) -> None:
         """Корректно завершает работу всех управляемых задач"""
         self._is_stoped.set()
-        for greenlet in self._tasks.values():
+        for greenlet, _ in self._tasks.values():
             greenlet.kill(block=False)
 
     def run(self) -> None:
@@ -51,4 +58,9 @@ class GreenletRunner:
         signal.signal(signal.SIGINT, self._shutdown)
 
         while not self._is_stoped.is_set():
-            gevent.joinall(list(self._tasks.values()))
+            non_daemon = [
+                task for task, is_daemon in self._tasks.values()
+                if not is_daemon
+            ]
+
+            gevent.joinall(non_daemon)
