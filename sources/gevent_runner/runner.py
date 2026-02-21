@@ -3,14 +3,13 @@ import threading
 from types import FrameType
 from typing import Callable
 
-import gevent
-from gevent import monkey
+import gevent.monkey
 
 
 class GreenletRunner:
 
     def __init__(self):
-        if not monkey.is_anything_patched():
+        if not gevent.monkey.is_anything_patched():
             raise RuntimeError(
                 'Требуется monkey patching gevent. '
                 'Вызовите gevent.monkey.patch_all() перед созданием экземпляра '
@@ -20,7 +19,7 @@ class GreenletRunner:
         self._lock = threading.RLock()
         self._is_stoped = threading.Event()
 
-    def add(self, *callables, is_daemon: bool = False) -> None:
+    def add(self, *callables, daemon: bool = False) -> None:
         """Запускает задачи."""
         if self._is_stoped.is_set():
             raise RuntimeError('GreenletRunner stopped')
@@ -29,7 +28,7 @@ class GreenletRunner:
             for func in callables:
                 if func in self._tasks:
                     raise ValueError(f'Task {func} already added')
-                self._tasks[func] = gevent.spawn(func), is_daemon
+                self._tasks[func] = gevent.spawn(func), daemon
 
     def remove(self, *callables, timeout: float | None = None) -> None:
         """Останавливает и удаляет задачи.

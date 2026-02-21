@@ -49,7 +49,7 @@ def main():
     
     # Add daemon tasks - these will run in background
     # They will be automatically stopped when all non-daemon tasks finish
-    runner.add(print_heartbeat, print_status, is_daemon=True)
+    runner.add(print_heartbeat, print_status, daemon=True)
     
     # Start the main loop (blocks until SIGTERM or SIGINT)
     # This will run indefinitely until interrupted

@@ -118,7 +118,7 @@ runner.add(my_task)
 runner.add(task1, task2, task3)
 
 # Добавление задачи с демоном
-runner.add(task1, is_daemon=True)
+runner.add(task1, daemon=True)
 ```
 
 **Важно:** Задача должна быть вызываемой функцией (callable). Каждая задача может быть добавлена только один раз.
